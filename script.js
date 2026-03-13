@@ -41,20 +41,11 @@ function requestGeolocation() {
     navigator.geolocation.getCurrentPosition(
         position => {
             const { latitude, longitude } = position.coords;
-            // Создание условного города текущего местоположения
-            const currentCity = {
-                id: Date.now(),
-                type: 'current',
-                displayName: 'Текущее местоположение',
-                cityName: null,
-                latitude,
-                longitude
-            };
-            cities = [currentCity];
-            fetchWeatherForCity(currentCity); // запрос погоды
+            // Добавление текущего местоположения как города
+            addCityFromCoordinates('Текущее местоположение', latitude, longitude, 'current');
         },
         error => {
-            handleGeolocationError(error); // иначе ошибка
+            handleGeolocationError(error); // обработка ошибки
         }
     );
 }
@@ -74,6 +65,22 @@ function handleGeolocationError(error) {
     cityInput.focus();
 }
 
+// Добавление города в список и загрузка погоды
+function addCityFromCoordinates(displayName, lat, lon, type = 'additional', cityName = null) {
+    const newCity = {
+        id: Date.now() + Math.random(), // уникальный id
+        type: type,
+        displayName: displayName,
+        cityName: cityName || displayName,
+        latitude: lat,
+        longitude: lon,
+        weatherData: null // пока пусто
+    };
+
+    cities.push(newCity); // добавление в общий список городов
+    fetchWeatherForCity(newCity); // получение погоды
+}
+
 // Запрос погоды
 async function fetchWeatherForCity(city) {
     // По умолчанию идёт загрузка
@@ -87,64 +94,112 @@ async function fetchWeatherForCity(city) {
         const response = await fetch(url); // асинхронное ожидание
         if (!response.ok) throw new Error('Ошибка загрузки погоды');
         const data = await response.json();
+        city.weatherData = data.daily;
 
-        // Рендеринг полученных данных по дням
-        renderCityCard(city, data.daily);
+        // Рендеринг полученных данных
+        renderAllCities();
     } catch (err) { // ошибка получения данных
         showGlobalError('Не удалось загрузить прогноз. Попробуйте позже.');
+        city.weatherData = null; // оставляем пустым
+        renderAllCities(); // рендеринг
     } finally {
         showLoader(false);
     }
 }
 
-// Рендеринг карточки города
-function renderCityCard(city, dailyData) {
+// Рендеринг всех карточек
+function renderAllCities() {
     // Очистка контейнера
     cardsContainer.innerHTML = '';
 
-    // Добавление города
-    const card = document.createElement('article');
-    card.className = 'weather-card';
-    card.dataset.cityId = city.id;
+    cities.forEach(city => {
+        // Добавление города
+        const card = document.createElement('article');
+        card.className = 'weather-card';
+        card.dataset.cityId = city.id;
 
-    const title = document.createElement('h2');
-    title.className = 'weather-card__title';
-    title.textContent = city.displayName;
+        // Заголовок с названием
+        const headerDiv = document.createElement('div');
+        headerDiv.style.display = 'flex';
+        headerDiv.style.justifyContent = 'space-between';
+        headerDiv.style.alignItems = 'center';
+        headerDiv.style.marginBottom = '1rem';
 
-    // Создание элемента div страницы
-    const daysContainer = document.createElement('div');
-    daysContainer.className = 'weather-card__days';
+        const title = document.createElement('h2');
+        title.className = 'weather-card__title';
+        title.textContent = city.displayName;
+        headerDiv.appendChild(title);
 
-    // Форматирование дат
-    const options = { weekday: 'short', day: 'numeric', month: 'short' };
-    for (let i = 0; i < 3; i++) {
-        const date = new Date(dailyData.time[i] + 'T12:00:00'); // полдень для надёжности
-        const dayStr = date.toLocaleDateString('ru-RU', options);
+        // При типе additional - кнопка удаления
+        if (city.type === 'additional') {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '✕';
+            deleteBtn.style.background = 'none';
+            deleteBtn.style.border = 'none';
+            deleteBtn.style.fontSize = '1.2rem';
+            deleteBtn.style.cursor = 'pointer';
+            deleteBtn.style.color = '#94a3b8';
+            deleteBtn.style.padding = '0 0.5rem';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // остановка всплытия события
+                removeCity(city.id); // удаление города при нажатии
+            });
+            headerDiv.appendChild(deleteBtn);
+        }
 
-        // max и min температуры дня
-        const maxTemp = dailyData.temperature_2m_max[i];
-        const minTemp = dailyData.temperature_2m_min[i];
+        card.appendChild(headerDiv);
 
-        // Контейнер одного дня с датой и температурами
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'weather-card__day';
+        // Если данные погоды загружены, отображаем их
+        if (city.weatherData) {
+            const daysContainer = document.createElement('div');
+            daysContainer.className = 'weather-card__days';
 
-        const dateSpan = document.createElement('span');
-        dateSpan.className = 'weather-card__date';
-        dateSpan.textContent = dayStr;
+            // Форматирование дат
+            const options = { weekday: 'short', day: 'numeric', month: 'short' };
+            for (let i = 0; i < 3; i++) {
+                const date = new Date(city.weatherData.time[i] + 'T12:00:00'); // полдень для надёжности
+                const dayStr = date.toLocaleDateString('ru-RU', options);
 
-        const tempSpan = document.createElement('span');
-        tempSpan.className = 'weather-card__temp';
-        tempSpan.textContent = `${Math.round(maxTemp)}° / ${Math.round(minTemp)}°`;
+                // max и min температуры дня
+                const maxTemp = city.weatherData.temperature_2m_max[i];
+                const minTemp = city.weatherData.temperature_2m_min[i];
 
-        dayDiv.appendChild(dateSpan);
-        dayDiv.appendChild(tempSpan);
-        daysContainer.appendChild(dayDiv);
-    }
+                // Контейнер одного дня с датой и температурами
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'weather-card__day';
 
-    card.appendChild(title);
-    card.appendChild(daysContainer);
-    cardsContainer.appendChild(card);
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'weather-card__date';
+                dateSpan.textContent = dayStr;
+
+                const tempSpan = document.createElement('span');
+                tempSpan.className = 'weather-card__temp';
+                tempSpan.textContent = `${Math.round(maxTemp)}° / ${Math.round(minTemp)}°`;
+
+                dayDiv.appendChild(dateSpan);
+                dayDiv.appendChild(tempSpan);
+                daysContainer.appendChild(dayDiv);
+            }
+
+            card.appendChild(daysContainer);
+
+        } else {
+            // Иначе сообщение о недоступности
+            const errorMsg = document.createElement('p');
+            errorMsg.textContent = 'Данные недоступны';
+            errorMsg.style.color = '#ef4444';
+            errorMsg.style.padding = '1rem 0';
+            card.appendChild(errorMsg);
+        }
+
+        cardsContainer.appendChild(card);
+    });
+}
+
+// Удаление города
+function removeCity(cityId) {
+    cities = cities.filter(city => city.id !== cityId);
+    renderAllCities(); // пересборка
 }
 
 // Поиск городов
@@ -223,20 +278,17 @@ addCityForm.addEventListener('submit', (e) => {
         return;
     }
 
-    // Добавления города в качестве текущего местоположения (при ручном вводе)
-    const newCity = {
-        id: Date.now(),
-        type: 'current',
-        displayName: selectedCity.name,
-        cityName: selectedCity.name,
-        latitude: selectedCity.latitude,
-        longitude: selectedCity.longitude
-    };
+    // Определение типа города: если cities пуст, то current, иначе additional
+    const type = cities.length === 0 ? 'current' : 'additional';
+    const displayName = type === 'current' ? selectedCity.name : selectedCity.name;
+    
+    // Добалвние отображения города
+    addCityFromCoordinates(selectedCity.name, selectedCity.latitude, selectedCity.longitude, type, selectedCity.name);
 
-    cities = [newCity]; // замена текущего города
-    fetchWeatherForCity(newCity); // загрузка погоды для города
+    // Очистка формы
     cityInput.value = '';
     selectedCity = null;
+    cityError.textContent = '';
     hideSuggestions();
 });
 
@@ -247,7 +299,8 @@ refreshBtn.addEventListener('click', () => {
         requestGeolocation();
     } else {
         // Запрос погоды для всех городов заново
-        cities.forEach(city => fetchWeatherForCity(city));
+        Promise.all(cities.map(city => fetchWeatherForCity(city)))
+            .catch(() => showGlobalError('Ошибка при обновлении'));
     }
 });
 
