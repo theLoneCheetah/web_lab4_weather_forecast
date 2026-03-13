@@ -48,17 +48,16 @@ function init() {
     const savedCities = loadFromStorage();
     
     if (savedCities && savedCities.length > 0) {
-        // Восстанавление городов
+        // Восстанавление городов из сохранённых
         cities = savedCities.map(city => ({
             ...city,
             weatherData: null
         }));
-        // Загрузка погоды для всех городов
-        refreshAllCities();
     } else {
-        // Иначе запрос геолокацию
-        requestGeolocation();
+        cities = [];
     }
+
+    updateCurrentLocation(); // всегда пытаться обновить геолокацию при перезагрузке
 }
 
 // Геолокация
@@ -82,6 +81,67 @@ function requestGeolocation() {
         },
         error => {
             handleGeolocationError(error); // обработка ошибки
+        }
+    );
+}
+
+// Обновление геолокации
+function updateCurrentLocation() {
+    if (!navigator.geolocation) {
+        // Геолокация не поддерживается — загрузка существующих городов (если есть)
+        if (cities.length > 0) {
+            showGlobalError('Геолокация не поддерживается. Показаны сохранённые города.');
+            refreshAllCities();
+        } else {
+            handleGeolocationError({ message: 'Геолокация не поддерживается' });
+        }
+        return;
+    }
+
+    // Запрос геолокации через браузер
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            const { latitude, longitude } = position.coords;
+            const currentIndex = cities.findIndex(c => c.type === 'current');
+            
+            if (currentIndex !== -1) {
+                // Обновление существующего current города, если уже существовал
+                cities[currentIndex] = {
+                    ...cities[currentIndex],
+                    latitude,
+                    longitude,
+                    displayName: 'Текущее местоположение',
+                    cityName: null,
+                    weatherData: null
+                };
+            } else {
+                // Иначе - создание нового current города
+                cities.push({
+                    id: Date.now() + Math.random(),
+                    type: 'current',
+                    displayName: 'Текущее местоположение',
+                    cityName: null,
+                    latitude,
+                    longitude,
+                    weatherData: null
+                });
+            }
+            
+            saveToStorage();
+            refreshAllCities(); // загрузка погоды для всех городов
+        },
+        error => {
+            // При ошибке геолокации удалить current города
+            removeCurrentCities();
+
+            if (cities.length === 0) {
+                // Нет сохранённых городов — ручной ввод
+                handleGeolocationError(error);
+            } else {
+                // Есть сохранённые города — загрузка их погоды
+                showGlobalError('Не удалось определить текущее местоположение. Показаны сохранённые города.');
+                refreshAllCities();
+            }
         }
     );
 }
@@ -315,6 +375,15 @@ function removeCity(cityId) {
     renderAllCities(); // пересборка
 }
 
+// Удаление городов со типом current
+function removeCurrentCities() {
+    const hadCurrent = cities.some(c => c.type === 'current');
+    cities = cities.filter(c => c.type !== 'current');
+    if (hadCurrent) {
+        saveToStorage(); // сохранение
+    }
+}
+
 // Поиск городов
 cityInput.addEventListener('input', (e) => {
     const query = e.target.value.trim();
@@ -392,8 +461,7 @@ addCityForm.addEventListener('submit', (e) => {
     }
 
     // Определение типа города: если cities пуст, то current, иначе additional
-    const type = cities.length === 0 ? 'current' : 'additional';
-    const displayName = type === 'current' ? selectedCity.name : selectedCity.name;
+    const type = cities.length === 0 ? 'current' : 'additional';    
     
     // Добалвние отображения города
     addCityFromCoordinates(selectedCity.name, selectedCity.latitude, selectedCity.longitude, type, selectedCity.name);
