@@ -172,12 +172,59 @@ function renderAllCities() {
                 dateSpan.className = 'weather-card__date';
                 dateSpan.textContent = dayStr;
 
-                const tempSpan = document.createElement('span');
-                tempSpan.className = 'weather-card__temp';
-                tempSpan.textContent = `${Math.round(maxTemp)}° / ${Math.round(minTemp)}°`;
+                // Контейнер для температур с подписями
+                const tempContainer = document.createElement('div');
+                tempContainer.style.display = 'flex';
+                tempContainer.style.gap = '0.75rem';
+                tempContainer.style.alignItems = 'center';
+
+                // Максимальная температура (день)
+                const maxWrapper = document.createElement('div');
+                maxWrapper.style.display = 'flex';
+                maxWrapper.style.flexDirection = 'column';
+                maxWrapper.style.alignItems = 'center';
+
+                // Подпись "Д"
+                const maxLabel = document.createElement('span');
+                maxLabel.textContent = 'Д';
+                maxLabel.style.fontSize = '0.7rem';
+                maxLabel.style.color = '#64748b';
+                maxLabel.style.textTransform = 'uppercase';
+
+                // Значение
+                const maxValue = document.createElement('span');
+                maxValue.className = 'weather-card__temp';
+                maxValue.textContent = `${Math.round(maxTemp)}°`;
+
+                maxWrapper.appendChild(maxLabel);
+                maxWrapper.appendChild(maxValue);
+
+                // Минимальная температура (ночь)
+                const minWrapper = document.createElement('div');
+                minWrapper.style.display = 'flex';
+                minWrapper.style.flexDirection = 'column';
+                minWrapper.style.alignItems = 'center';
+
+                // Подпись "Н"
+                const minLabel = document.createElement('span');
+                minLabel.textContent = 'Н';
+                minLabel.style.fontSize = '0.7rem';
+                minLabel.style.color = '#64748b';
+                minLabel.style.textTransform = 'uppercase';
+
+                // Значение
+                const minValue = document.createElement('span');
+                minValue.className = 'weather-card__temp';
+                minValue.textContent = `${Math.round(minTemp)}°`;
+
+                minWrapper.appendChild(minLabel);
+                minWrapper.appendChild(minValue);
+
+                tempContainer.appendChild(maxWrapper);
+                tempContainer.appendChild(minWrapper);
 
                 dayDiv.appendChild(dateSpan);
-                dayDiv.appendChild(tempSpan);
+                dayDiv.appendChild(tempContainer);
                 daysContainer.appendChild(dayDiv);
             }
 
