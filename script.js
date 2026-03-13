@@ -2,6 +2,9 @@
 const WEATHER_API_BASE = 'https://api.open-meteo.com/v1/forecast'; // API получения прогноза погоды
 const GEO_API_BASE = 'https://geocoding-api.open-meteo.com/v1/search'; // API получения координат города
 
+// Ключ хранилища данных в local storage
+const STORAGE_KEY = 'weather_cities';
+
 // Элементы DOM
 const refreshBtn = document.getElementById('refreshBtn');
 const cityInput = document.getElementById('cityInput');
@@ -20,9 +23,42 @@ let searchTimeout = null;
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', init);
 
+// Сохранение списка городов
+function saveToStorage() {
+    const citiesToSave = cities.map(({ weatherData, ...rest }) => rest); // без данных погоды
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(citiesToSave));
+}
+
+// Загрузка списка из local storage
+function loadFromStorage() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+// Инициализация
 function init() {
-    // Запрос геолокацию
-    requestGeolocation();
+    // Подгрузка данных городов
+    const savedCities = loadFromStorage();
+    
+    if (savedCities && savedCities.length > 0) {
+        // Восстанавление городов
+        cities = savedCities.map(city => ({
+            ...city,
+            weatherData: null
+        }));
+        // Загрузка погоды для всех городов
+        refreshAllCities();
+    } else {
+        // Иначе запрос геолокацию
+        requestGeolocation();
+    }
 }
 
 // Геолокация
@@ -78,6 +114,7 @@ function addCityFromCoordinates(displayName, lat, lon, type = 'additional', city
     };
 
     cities.push(newCity); // добавление в общий список городов
+    saveToStorage(); // сохранение
     fetchWeatherForCity(newCity); // получение погоды
 }
 
@@ -140,6 +177,7 @@ function renderAllCities() {
             deleteBtn.style.cursor = 'pointer';
             deleteBtn.style.color = '#94a3b8';
             deleteBtn.style.padding = '0 0.5rem';
+
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); // остановка всплытия события
                 removeCity(city.id); // удаление города при нажатии
@@ -243,9 +281,37 @@ function renderAllCities() {
     });
 }
 
+// Обновление погоды для всех городов
+async function refreshAllCities() {
+    if (cities.length === 0) return;
+    
+    showLoader(true);
+    hideGlobalError();
+    
+    try {
+        // Запрос погоды для всех городов асинхронно
+        await Promise.all(cities.map(async (city) => {
+            const url = `${WEATHER_API_BASE}?latitude=${city.latitude}&longitude=${city.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Ошибка загрузки для ${city.displayName}`);
+            const data = await response.json();
+            city.weatherData = data.daily;
+        }));
+        
+        renderAllCities(); // рендеринг
+    } catch (err) {
+        showGlobalError('Не удалось обновить данные. Проверьте соединение.');
+        // Рендеринг того, что есть
+        renderAllCities();
+    } finally {
+        showLoader(false);
+    }
+}
+
 // Удаление города
 function removeCity(cityId) {
     cities = cities.filter(city => city.id !== cityId);
+    saveToStorage(); // сохранение
     renderAllCities(); // пересборка
 }
 
@@ -346,8 +412,7 @@ refreshBtn.addEventListener('click', () => {
         requestGeolocation();
     } else {
         // Запрос погоды для всех городов заново
-        Promise.all(cities.map(city => fetchWeatherForCity(city)))
-            .catch(() => showGlobalError('Ошибка при обновлении'));
+        refreshAllCities();
     }
 });
 
