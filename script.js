@@ -192,14 +192,13 @@ async function fetchWeatherForCity(city) {
         if (!response.ok) throw new Error('Ошибка загрузки погоды');
         const data = await response.json();
         city.weatherData = data.daily;
-
+        city.error = undefined; // очищаем предыдущую ошибку
+    } catch (err) { // ошибка получения данных
+        city.weatherData = null; // оставляем пустым
+        city.error = 'Не удалось загрузить данные. Попробуйте позже.';
+    } finally {
         // Рендеринг полученных данных
         renderAllCities();
-    } catch (err) { // ошибка получения данных
-        showGlobalError('Не удалось загрузить прогноз. Попробуйте позже.');
-        city.weatherData = null; // оставляем пустым
-        renderAllCities(); // рендеринг
-    } finally {
         showLoader(false);
     }
 }
@@ -221,23 +220,20 @@ function renderAllCities() {
         headerDiv.style.justifyContent = 'space-between';
         headerDiv.style.alignItems = 'center';
         headerDiv.style.marginBottom = '1rem';
+        headerDiv.style.flexWrap = 'wrap';
+        headerDiv.style.gap = '0.5rem';
 
         const title = document.createElement('h2');
         title.className = 'weather-card__title';
         title.textContent = city.displayName;
+        title.style.wordBreak = 'break-word';
         headerDiv.appendChild(title);
 
         // При типе additional - кнопка удаления
         if (city.type === 'additional') {
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = '✕';
-            deleteBtn.style.background = 'none';
-            deleteBtn.style.border = 'none';
-            deleteBtn.style.fontSize = '1.2rem';
-            deleteBtn.style.cursor = 'pointer';
-            deleteBtn.style.color = '#94a3b8';
-            deleteBtn.style.padding = '0 0.5rem';
-
+            deleteBtn.className = 'weather-card__delete';
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); // остановка всплытия события
                 removeCity(city.id); // удаление города при нажатии
@@ -247,8 +243,14 @@ function renderAllCities() {
 
         card.appendChild(headerDiv);
 
-        // Если данные погоды загружены, отображаем их
-        if (city.weatherData) {
+        // Вывод ошибки
+        if (city.error) {
+            const errorMsg = document.createElement('p');
+            errorMsg.className = 'weather-card__error';
+            errorMsg.textContent = city.error;
+            card.appendChild(errorMsg);
+        } else if (city.weatherData) {
+            // Если данные погоды загружены, отображаем их
             const daysContainer = document.createElement('div');
             daysContainer.className = 'weather-card__days';
 
@@ -287,7 +289,6 @@ function renderAllCities() {
                 maxLabel.textContent = 'Д';
                 maxLabel.style.fontSize = '0.7rem';
                 maxLabel.style.color = '#64748b';
-                maxLabel.style.textTransform = 'uppercase';
 
                 // Значение
                 const maxValue = document.createElement('span');
@@ -308,7 +309,6 @@ function renderAllCities() {
                 minLabel.textContent = 'Н';
                 minLabel.style.fontSize = '0.7rem';
                 minLabel.style.color = '#64748b';
-                minLabel.style.textTransform = 'uppercase';
 
                 // Значение
                 const minValue = document.createElement('span');
@@ -347,25 +347,25 @@ async function refreshAllCities() {
     
     showLoader(true);
     hideGlobalError();
-    
-    try {
-        // Запрос погоды для всех городов асинхронно
-        await Promise.all(cities.map(async (city) => {
-            const url = `${WEATHER_API_BASE}?latitude=${city.latitude}&longitude=${city.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3`;
+
+    // Запрос погоды для всех городов асинхронно
+    await Promise.allSettled(cities.map(async (city) => {
+        const url = `${WEATHER_API_BASE}?latitude=${city.latitude}&longitude=${city.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3`;
+        try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`Ошибка загрузки для ${city.displayName}`);
+            if (!response.ok) throw new Error();
             const data = await response.json();
             city.weatherData = data.daily;
-        }));
-        
-        renderAllCities(); // рендеринг
-    } catch (err) {
-        showGlobalError('Не удалось обновить данные. Проверьте соединение.');
-        // Рендеринг того, что есть
-        renderAllCities();
-    } finally {
-        showLoader(false);
-    }
+            city.error = undefined;
+        } catch (err) {
+            city.weatherData = null;
+            city.error = 'Ошибка загрузки';
+        }
+    }));
+    
+    // Рендеринг того, что есть
+    renderAllCities();
+    showLoader(false);
 }
 
 // Удаление города
@@ -457,6 +457,17 @@ addCityForm.addEventListener('submit', (e) => {
     // Если не выбран город
     if (!selectedCity) {
         cityError.textContent = 'Пожалуйста, выберите город из списка';
+        return;
+    }
+
+    // Проверка на дубликат (по координатам с небольшим допуском)
+    const isDuplicate = cities.some(city => 
+        Math.abs(city.latitude - selectedCity.latitude) < 0.01 && 
+        Math.abs(city.longitude - selectedCity.longitude) < 0.01
+    );
+
+    if (isDuplicate) {
+        cityError.textContent = 'Этот город уже добавлен';
         return;
     }
 
