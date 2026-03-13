@@ -14,76 +14,20 @@
     </header>
 
     <main class="main">
-        <!-- Блок поиска и добавления города -->
         <section class="add-city">
+            <!-- Блок поиска и добавления города -->
             <form class="add-city__form" id="addCityForm">
                 <!-- Ввод названия города -->
                 <input type="text" class="add-city__input" id="cityInput" placeholder="Введите город..." autocomplete="off">
                 <!-- Кнопка добавления города -->
                 <button type="submit" class="add-city__button">Добавить</button>
             </form>
-            <!-- Блок для отображения ошибок при добавлении города -->
             <div class="add-city__error" id="cityError"></div>
-            <!-- Выпадающий список подсказок -->
             <ul class="suggestions-list" id="suggestions"></ul>
         </section>
 
-        <!-- Контейнер для карточек погоды со статическими карточками -->
-        <div class="cards-container" id="cardsContainer">
-            <article class="weather-card">
-                <h2 class="weather-card__title">Текущее местоположение</h2>
-                <div class="weather-card__days">
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Сегодня</span>
-                        <span class="weather-card__temp">+9° / +3°</span>
-                    </div>
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Завтра</span>
-                        <span class="weather-card__temp">+7° / +5°</span>
-                    </div>
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Послезавтра</span>
-                        <span class="weather-card__temp">+4° / +1°</span>
-                    </div>
-                </div>
-            </article>
-            
-            <article class="weather-card">
-                <h2 class="weather-card__title">Москва</h2>
-                <div class="weather-card__days">
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Сегодня</span>
-                        <span class="weather-card__temp">+12° / +6°</span>
-                    </div>
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Завтра</span>
-                        <span class="weather-card__temp">+13° / +7°</span>
-                    </div>
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Послезавтра</span>
-                        <span class="weather-card__temp">+11° / +5°</span>
-                    </div>
-                </div>
-            </article>
-            
-            <article class="weather-card">
-                <h2 class="weather-card__title">Псков</h2>
-                <div class="weather-card__days">
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Сегодня</span>
-                        <span class="weather-card__temp">+10° / +5°</span>
-                    </div>
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Завтра</span>
-                        <span class="weather-card__temp">+11° / +6°</span>
-                    </div>
-                    <div class="weather-card__day">
-                        <span class="weather-card__date">Послезавтра</span>
-                        <span class="weather-card__temp">+9° / +4°</span>
-                    </div>
-                </div>
-            </article>
-        </div>
+        <!-- Контейнер для карточек погоды -->
+        <div class="cards-container" id="cardsContainer"></div>
 
         <!-- Индикатор загрузки -->
         <div class="loader" id="loader" style="display: none;">Загрузка...</div>
@@ -91,5 +35,8 @@
         <!-- Блок глобальных ошибок -->
         <div class="error-message" id="globalError" style="display: none;"></div>
     </main>
+    
+    <!-- Основной скрипт -->
+    <script src="script.js"></script>
 </body>
 </html>
